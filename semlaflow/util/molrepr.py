@@ -268,6 +268,8 @@ class GeometricMol(SmolMol):
         bond_indices: Optional[_T] = None,
         bond_types: Optional[_T] = None,
         charges: Optional[_T] = None,
+        bond_orders: Optional[_T] = None,
+        properties: Optional[dict] = None,
         device: Optional[TDevice] = None,
         is_mmap: bool = False,
         str_id: Optional[str] = None,
@@ -292,6 +294,11 @@ class GeometricMol(SmolMol):
         _check_shape_len(bond_types, [1, 2], "bond types")
         _check_shapes_equal(bond_indices, bond_types, 0)
 
+        # Validate bond_orders if provided
+        if bond_orders is not None:
+            _check_shape_len(bond_orders, 1, "bond orders")
+            _check_shapes_equal(bond_indices, bond_orders, 0)
+
         charges = torch.zeros(coords.size(0)) if charges is None else charges
 
         _check_shape_len(charges, 1, "charges")
@@ -303,7 +310,9 @@ class GeometricMol(SmolMol):
         self._atomics = atomics
         self._bond_indices = bond_indices
         self._bond_types = bond_types
+        self._bond_orders = bond_orders
         self._charges = charges
+        self._properties = properties if properties is not None else {}
         self._device = device
 
         # If the data are not stored in mmap tensors, then convert to expected type and move to device
@@ -316,6 +325,10 @@ class GeometricMol(SmolMol):
             self._coords = coords.float().to(device)
             self._bond_indices = bond_indices.long().to(device)
             self._charges = charges.long().to(device)
+
+            # Bond orders are always float (continuous values)
+            if bond_orders is not None:
+                self._bond_orders = bond_orders.float().to(device)
 
         super().__init__(str_id)
 
@@ -365,6 +378,18 @@ class GeometricMol(SmolMol):
     def charges(self) -> _T:
         return self._charges.long().to(self._device)
 
+    @property
+    def bond_orders(self) -> Optional[_T]:
+        """Continuous bond orders (e.g., Wiberg, Mayer). Returns None if not set."""
+        if self._bond_orders is None:
+            return None
+        return self._bond_orders.float().to(self._device)
+
+    @property
+    def properties(self) -> dict:
+        """Dictionary of additional QM properties (energies, partial charges, etc.)"""
+        return self._properties
+
     # Note: this will always return a symmetric NxN matrix
     @property
     def adjacency(self) -> _T:
@@ -401,21 +426,70 @@ class GeometricMol(SmolMol):
             bond_indices = bonds[:, :2]
             bond_types = bonds[:, 2]
 
+        # Load optional new fields (with backward compatibility)
+        bond_orders = obj.get("bond_orders", None)
+        properties = obj.get("properties", None)
+
         mol = GeometricMol(
             obj["coords"],
             obj["atomics"],
             bond_indices=bond_indices,
             bond_types=bond_types,
             charges=obj["charges"],
+            bond_orders=bond_orders,
+            properties=properties,
             device=obj["device"],
             is_mmap=False,
             str_id=obj["id"],
         )
         return mol
 
+    @staticmethod
+    def _extract_qm_properties(mol: Chem.rdchem.Mol, bond_order_type: str = "GFN2:WIBERG_BOND_ORDER"):
+        """Extract QM properties from RDKit molecule SDF properties.
+
+        Args:
+            mol: RDKit molecule with SDF properties
+            bond_order_type: Which bond order property to use. Options:
+                - "GFN2:WIBERG_BOND_ORDER" (default)
+                - "DFT:MAYER_BOND_ORDER"
+                - "DFT:WIBERG_LOWDIN_BOND_ORDER"
+
+        Returns:
+            bond_orders: Tensor of continuous bond orders (N_bonds,) or None
+            properties: Dict of other QM properties
+        """
+        properties = {}
+        bond_orders = None
+
+        # Extract bond orders if available
+        if mol.HasProp(bond_order_type):
+            bond_order_string = mol.GetProp(bond_order_type)
+            bond_order_values = [float(x) for x in bond_order_string.split('|')]
+            bond_orders = torch.tensor(bond_order_values, dtype=torch.float32)
+
+        # Extract other QM properties (energies, charges, etc.)
+        qm_property_keys = [
+            "GFN2:TOTAL_ENERGY", "GFN2:FORMATION_ENERGY",
+            "GFN2:HOMO_ENERGY", "GFN2:LUMO_ENERGY", "GFN2:HOMO_LUMO_GAP",
+            "DFT:TOTAL_ENERGY", "DFT:FORMATION_ENERGY",
+            "DFT:HOMO_ENERGY", "DFT:LUMO_ENERGY", "DFT:HOMO_LUMO_GAP",
+        ]
+
+        for key in qm_property_keys:
+            if mol.HasProp(key):
+                try:
+                    properties[key] = float(mol.GetProp(key))
+                except (ValueError, TypeError):
+                    # Some properties might be strings or other formats
+                    properties[key] = mol.GetProp(key)
+
+        return bond_orders, properties
+
     # Note: currently only uses the default conformer for mol
     @staticmethod
-    def from_rdkit(mol: Chem.rdchem.Mol) -> GeometricMol:
+    def from_rdkit(mol: Chem.rdchem.Mol, extract_qm_properties: bool = False,
+                   bond_order_type: str = "GFN2:WIBERG_BOND_ORDER") -> GeometricMol:
         # TODO handle this better - maybe create 3D info if not provided, with a warning
         if mol.GetNumConformers() == 0 or not mol.GetConformer().Is3D():
             raise RuntimeError("The default conformer must have 3D coordinates")
@@ -447,8 +521,18 @@ class GeometricMol(SmolMol):
         bond_indices = bonds[:, :2]
         bond_types = bonds[:, 2]
 
-        mol = GeometricMol(coords, atomics, bond_indices, bond_types, charges=charges, str_id=smiles)
-        return mol
+        # Extract QM properties if requested
+        bond_orders = None
+        properties = {}
+        if extract_qm_properties:
+            bond_orders, properties = GeometricMol._extract_qm_properties(mol, bond_order_type)
+
+        mol_obj = GeometricMol(
+            coords, atomics, bond_indices, bond_types,
+            charges=charges, bond_orders=bond_orders, properties=properties,
+            str_id=smiles
+        )
+        return mol_obj
 
     def to_bytes(self) -> bytes:
         dict_repr = {
@@ -460,6 +544,14 @@ class GeometricMol(SmolMol):
             "device": str(self.device),
             "id": self._str_id,
         }
+
+        # Add optional fields if present
+        if self._bond_orders is not None:
+            dict_repr["bond_orders"] = self.bond_orders
+
+        if self._properties:
+            dict_repr["properties"] = self._properties
+
         byte_obj = pickle.dumps(dict_repr, protocol=PICKLE_PROTOCOL)
         return byte_obj
 
@@ -486,6 +578,8 @@ class GeometricMol(SmolMol):
         bond_indices: Optional[_T] = None,
         bond_types: Optional[_T] = None,
         charges: Optional[_T] = None,
+        bond_orders: Optional[_T] = None,
+        properties: Optional[dict] = None,
     ) -> GeometricMol:
 
         coords = self.coords if coords is None else coords
@@ -493,6 +587,8 @@ class GeometricMol(SmolMol):
         bond_indices = self.bond_indices if bond_indices is None else bond_indices
         bond_types = self.bond_types if bond_types is None else bond_types
         charges = self.charges if charges is None else charges
+        bond_orders = self.bond_orders if bond_orders is None else bond_orders
+        properties = self.properties if properties is None else properties
 
         obj = GeometricMol(
             coords,
@@ -500,6 +596,8 @@ class GeometricMol(SmolMol):
             bond_indices=bond_indices,
             bond_types=bond_types,
             charges=charges,
+            bond_orders=bond_orders,
+            properties=properties,
             device=self.device,
             is_mmap=False,
             str_id=self._str_id,
@@ -540,8 +638,12 @@ class GeometricMol(SmolMol):
         bond_indices = bond_idxs[mask]
         bond_types = self.bond_types[mask]
 
+        # Also filter bond_orders if present
+        bond_orders = self.bond_orders[mask] if self.bond_orders is not None else None
+
         mol_copy = self._copy_with(
-            coords=coords, atomics=atomics, bond_indices=bond_indices, bond_types=bond_types, charges=charges
+            coords=coords, atomics=atomics, bond_indices=bond_indices, bond_types=bond_types,
+            charges=charges, bond_orders=bond_orders
         )
         return mol_copy
 

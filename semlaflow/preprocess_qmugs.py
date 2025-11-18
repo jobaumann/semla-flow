@@ -83,7 +83,7 @@ def create_splits(summary_df, train_frac=0.8, val_frac=0.1, random_seed=42):
     return train_ids, val_ids, test_ids
 
 
-def load_molecules_from_sdf(chembl_ids, structures_dir, max_conformers=None, skip_errors=True):
+def load_molecules_from_sdf(chembl_ids, structures_dir, max_conformers=None, skip_errors=True, max_atoms=None):
     """Load RDKit molecules from QMugs SDF files
 
     Args:
@@ -91,6 +91,7 @@ def load_molecules_from_sdf(chembl_ids, structures_dir, max_conformers=None, ski
         structures_dir: Path to structures directory
         max_conformers: Maximum conformers per molecule (None = all)
         skip_errors: Skip molecules that fail to load
+        max_atoms: Maximum number of atoms (None = no limit)
 
     Returns:
         List of RDKit molecules with 3D coordinates
@@ -98,6 +99,7 @@ def load_molecules_from_sdf(chembl_ids, structures_dir, max_conformers=None, ski
     mols = []
     errors = 0
     missing_dirs = 0
+    filtered_large = 0
 
     for chembl_id in tqdm(chembl_ids, desc="Loading molecules"):
         mol_dir = structures_dir / chembl_id
@@ -140,6 +142,11 @@ def load_molecules_from_sdf(chembl_ids, structures_dir, max_conformers=None, ski
                         raise ValueError(f"No 3D conformer in {sdf_file}")
                     continue
 
+                # Filter by size if specified
+                if max_atoms is not None and mol.GetNumAtoms() > max_atoms:
+                    filtered_large += 1
+                    continue
+
                 mols.append(mol)
 
             except Exception as e:
@@ -152,15 +159,19 @@ def load_molecules_from_sdf(chembl_ids, structures_dir, max_conformers=None, ski
         print(f"  Warning: {missing_dirs} molecule directories not found")
     if errors > 0:
         print(f"  Warning: {errors} conformers failed to load or validate")
+    if filtered_large > 0:
+        print(f"  Filtered: {filtered_large} conformers with >{max_atoms} atoms")
 
     return mols
 
 
-def rdkit_to_smol_batch(rdkit_mols):
+def rdkit_to_smol_batch(rdkit_mols, extract_qm_properties=False, bond_order_type="GFN2:WIBERG_BOND_ORDER"):
     """Convert list of RDKit molecules to GeometricMolBatch
 
     Args:
         rdkit_mols: List of RDKit molecules
+        extract_qm_properties: Whether to extract QM properties from SDF
+        bond_order_type: Which bond order type to extract
 
     Returns:
         GeometricMolBatch object
@@ -170,7 +181,11 @@ def rdkit_to_smol_batch(rdkit_mols):
 
     for mol in tqdm(rdkit_mols, desc="Converting to smol"):
         try:
-            smol_mol = GeometricMol.from_rdkit(mol)
+            smol_mol = GeometricMol.from_rdkit(
+                mol,
+                extract_qm_properties=extract_qm_properties,
+                bond_order_type=bond_order_type
+            )
             smol_mols.append(smol_mol)
         except Exception as e:
             errors += 1
@@ -184,7 +199,8 @@ def rdkit_to_smol_batch(rdkit_mols):
     return batch
 
 
-def process_split(split_name, chembl_ids, structures_dir, max_conformers, skip_errors=True):
+def process_split(split_name, chembl_ids, structures_dir, max_conformers, max_atoms=None,
+                  extract_qm=False, bond_order_type="GFN2:WIBERG_BOND_ORDER", skip_errors=True):
     """Process one data split
 
     Args:
@@ -192,6 +208,9 @@ def process_split(split_name, chembl_ids, structures_dir, max_conformers, skip_e
         chembl_ids: List of ChEMBL IDs for this split
         structures_dir: Path to structures directory
         max_conformers: Maximum conformers per molecule
+        max_atoms: Maximum number of atoms per molecule
+        extract_qm: Whether to extract QM properties
+        bond_order_type: Which bond order type to extract
         skip_errors: Whether to skip loading errors
 
     Returns:
@@ -204,13 +223,18 @@ def process_split(split_name, chembl_ids, structures_dir, max_conformers, skip_e
         chembl_ids,
         structures_dir,
         max_conformers=max_conformers,
+        max_atoms=max_atoms,
         skip_errors=skip_errors
     )
 
     print(f"  Successfully loaded {len(rdkit_mols)} conformers")
     print(f"  Converting to smol format...")
 
-    smol_batch = rdkit_to_smol_batch(rdkit_mols)
+    smol_batch = rdkit_to_smol_batch(
+        rdkit_mols,
+        extract_qm_properties=extract_qm,
+        bond_order_type=bond_order_type
+    )
 
     print(f"  {split_name.capitalize()} batch complete: {len(smol_batch)} molecules")
 
@@ -247,6 +271,10 @@ def main(args):
     print(f"Summary: {summary_file}")
     print(f"Output: {save_dir}")
     print(f"Max conformers per molecule: {args.max_conformers if args.max_conformers else 'all'}")
+    print(f"Max atoms per molecule: {args.max_atoms if args.max_atoms else 'unlimited'}")
+    print(f"Extract QM properties: {'Yes' if args.extract_qm else 'No'}")
+    if args.extract_qm:
+        print(f"Bond order type: {args.bond_order_type}")
 
     # Load summary and create splits
     print("\nLoading summary.csv...")
@@ -280,9 +308,12 @@ def main(args):
     print(f"\nSaved splits to {splits_path}")
 
     # Process each split
-    train_batch = process_split("train", train_ids, structures_dir, args.max_conformers)
-    val_batch = process_split("val", val_ids, structures_dir, args.max_conformers)
-    test_batch = process_split("test", test_ids, structures_dir, args.max_conformers)
+    train_batch = process_split("train", train_ids, structures_dir, args.max_conformers, args.max_atoms,
+                                args.extract_qm, args.bond_order_type)
+    val_batch = process_split("val", val_ids, structures_dir, args.max_conformers, args.max_atoms,
+                              args.extract_qm, args.bond_order_type)
+    test_batch = process_split("test", test_ids, structures_dir, args.max_conformers, args.max_atoms,
+                               args.extract_qm, args.bond_order_type)
 
     # Save to disk
     print("\n" + "=" * 60)
@@ -342,8 +373,17 @@ if __name__ == "__main__":
     # Dataset options
     parser.add_argument("--max_conformers", type=int, default=None,
                         help="Maximum conformers per molecule (default: all)")
+    parser.add_argument("--max_atoms", type=int, default=192,
+                        help="Maximum atoms per molecule (default: 192, matches GEOM-Drugs)")
     parser.add_argument("--max_mols_per_split", type=int, default=None,
                         help="Limit molecules per split (for testing, default: no limit)")
+
+    # QM properties extraction
+    parser.add_argument("--extract_qm", action="store_true",
+                        help="Extract QM properties (bond orders, energies, etc.) from SDF files")
+    parser.add_argument("--bond_order_type", type=str, default="GFN2:WIBERG_BOND_ORDER",
+                        choices=["GFN2:WIBERG_BOND_ORDER", "DFT:MAYER_BOND_ORDER", "DFT:WIBERG_LOWDIN_BOND_ORDER"],
+                        help="Which bond order type to extract (default: GFN2:WIBERG_BOND_ORDER)")
 
     # Split options
     parser.add_argument("--train_frac", type=float, default=0.8,
