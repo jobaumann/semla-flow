@@ -4,7 +4,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
-#SBATCH --gres=gpu:1                 # any GPU
+#SBATCH --gpus=1                 # any GPU
 #SBATCH --mem-per-cpu=8G             
 #SBATCH --partition=gpu.4h           
 #SBATCH --job-name=semlaflow-test
@@ -12,6 +12,7 @@
 #SBATCH --error=semlaflow-%j.err
 #SBATCH --mail-user=jobaumann@ethz.ch
 #SBATCH --mail-type=END,FAIL
+#SBATCH --account=es_jorner
 
 module load gcc/8.2.0
 module load cuda/12.1
