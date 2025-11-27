@@ -4,8 +4,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1            # Changed from 8 to 1
-#SBATCH --gpus=1                 
-#SBATCH --mem-per-cpu=16G            # Increased since we have fewer CPUs
+#SBATCH --gpus=rtx_4090:1                 
+#SBATCH --mem-per-cpu=32G            # Increased since we have fewer CPUs
 #SBATCH --partition=gpu.4h           
 #SBATCH --job-name=semlaflow-test
 #SBATCH --output=semlaflow-%j.out
