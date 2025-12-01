@@ -20,9 +20,11 @@ from semlaflow.util.tokeniser import Vocabulary
 # Declarations to be used in scripts
 QM9_COORDS_STD_DEV = 1.723299503326416
 GEOM_COORDS_STD_DEV = 2.407038688659668
+# QMUGS_COORDS_STD_DEV = 2.5  # How to find this value?
 
 QM9_BUCKET_LIMITS = [12, 16, 18, 20, 22, 24, 30]
 GEOM_DRUGS_BUCKET_LIMITS = [24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 96, 192]
+# QMUGS_BUCKET_LIMITS = [20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 320]
 
 PROJECT_PREFIX = "equinv"
 BOND_MASK_INDEX = 5

@@ -120,6 +120,8 @@ def build_model(args, dm, vocab):
         coord_scale = util.QM9_COORDS_STD_DEV
     elif args.dataset == "geom-drugs":
         coord_scale = util.GEOM_COORDS_STD_DEV
+    # elif args.dataset == "qmugs":
+    #     coord_scale = util.QMUGS_COORDS_STD_DEV
     else:
         raise ValueError(f"Unknown dataset {args.dataset}")
 

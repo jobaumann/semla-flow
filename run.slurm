@@ -3,9 +3,9 @@
 #SBATCH --time=4:00:00               
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=1            # Changed from 8 to 1
+#SBATCH --cpus-per-task=8
 #SBATCH --gpus=rtx_4090:1                 
-#SBATCH --mem-per-cpu=32G            # Increased since we have fewer CPUs
+#SBATCH --mem-per-cpu=16G
 #SBATCH --partition=gpu.4h           
 #SBATCH --job-name=semlaflow-test
 #SBATCH --output=semlaflow-%j.out
@@ -24,7 +24,7 @@ cd /cluster/project/jorner/jobaumann/semla-flow
 mamba run -n semlaflow python -m semlaflow.train \
     --data_path ../datasets/qmugs/smol \
     --dataset geom-drugs \
-    --batch_cost 128 \
+    --batch_cost 1024 \
     --epochs 10
 
 echo "Job finished at: $(date)"
