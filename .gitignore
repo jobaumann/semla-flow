@@ -27,3 +27,7 @@ nohup.out
 # Slurm submission scripts and logs
 subslurm/
 slurm-*
+
+# Slurm output files
+semlaflow-*.out
+semlaflow-*.err
