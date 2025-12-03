@@ -747,10 +747,13 @@ class SemlaGenerator(MolecularGenerator):
         if d_edge is not None or n_edge_types is not None:
             if None in [d_edge, n_edge_types]:
                 raise ValueError("If either d_edge or n_edge_types are given both must be provided.")
+            
+            # TODO: make bond representation continuous
 
             edge_in_feats = n_edge_types * 2 if self_cond else n_edge_types
 
             self.edge_in_proj = torch.nn.Sequential(
+                # edge_in_feats will be 1 or 2 depending on self_cond
                 torch.nn.Linear(edge_in_feats, d_edge), torch.nn.SiLU(inplace=False), torch.nn.Linear(d_edge, d_edge)
             )
             self.edge_out_proj = torch.nn.Sequential(

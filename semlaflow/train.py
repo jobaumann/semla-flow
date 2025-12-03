@@ -196,6 +196,11 @@ def build_dm(args, vocab):
         coord_std = util.GEOM_COORDS_STD_DEV
         padded_sizes = util.GEOM_DRUGS_BUCKET_LIMITS
 
+    # TODO Add qmugs dataset
+    elif args.dataset == "qmugs":
+        coord_std = util.QMUGS_COORDS_STD_DEV
+        padded_sizes = util.QMUGS_DRUGS_BUCKET_LIMITS
+
     else:
         raise ValueError(f"Unknown dataset {args.dataset}. Available datasets are `qm9` and `geom-drugs`.")
 
