@@ -365,8 +365,8 @@ if __name__ == "__main__":
     # Dataset options
     parser.add_argument("--max_conformers", type=int, default=None,
                         help="Maximum conformers per molecule (default: all)")
-    parser.add_argument("--max_atoms", type=int, default=192,
-                        help="Maximum atoms per molecule (default: 192, matches GEOM-Drugs)")
+    parser.add_argument("--max_atoms", type=int, default=None,
+                        help="Maximum atoms per molecule (default: None)")
     parser.add_argument("--max_mols_per_split", type=int, default=None,
                         help="Limit molecules per split (for testing, default: no limit)")
 
