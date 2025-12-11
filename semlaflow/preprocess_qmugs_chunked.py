@@ -88,11 +88,13 @@ def load_molecules_from_sdf(chembl_ids, structures_dir, max_conformers=None, ski
 
         for sdf_file in conf_files:
             try:
-                mol = Chem.MolFromMolFile(
+                # mol = Chem.MolFromMolFile(
+                supplier = Chem.SDMolSupplier(
                     str(sdf_file),
                     removeHs=False,
                     sanitize=True
                 )
+                mol = supplier[0] if len(supplier) > 0 else None
 
                 if mol is None:
                     errors += 1
@@ -119,7 +121,7 @@ def load_molecules_from_sdf(chembl_ids, structures_dir, max_conformers=None, ski
     return mols, {'errors': errors, 'missing_dirs': missing_dirs, 'filtered_large': filtered_large}
 
 
-def rdkit_to_smol_batch(rdkit_mols, extract_qm_properties=False, bond_order_type="GFN2:WIBERG_BOND_ORDER"):
+def rdkit_to_smol_batch(rdkit_mols, extract_qm_properties=False, bond_order_type="DFT:MAYER_BOND_ORDER"):
     """Convert list of RDKit molecules to GeometricMolBatch"""
     smol_mols = []
     errors = 0
@@ -373,9 +375,9 @@ if __name__ == "__main__":
     # QM properties extraction
     parser.add_argument("--extract_qm", action="store_true",
                         help="Extract QM properties (bond orders, energies, etc.) from SDF files")
-    parser.add_argument("--bond_order_type", type=str, default="GFN2:WIBERG_BOND_ORDER",
+    parser.add_argument("--bond_order_type", type=str, default="DFT:MAYER_BOND_ORDER",
                         choices=["GFN2:WIBERG_BOND_ORDER", "DFT:MAYER_BOND_ORDER", "DFT:WIBERG_LOWDIN_BOND_ORDER"],
-                        help="Which bond order type to extract (default: GFN2:WIBERG_BOND_ORDER)")
+                        help="Which bond order type to extract (default: DFT:MAYER_BOND_ORDER)")
 
     # Split options
     parser.add_argument("--train_frac", type=float, default=0.8,

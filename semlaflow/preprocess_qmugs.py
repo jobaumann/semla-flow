@@ -125,11 +125,13 @@ def load_molecules_from_sdf(chembl_ids, structures_dir, max_conformers=None, ski
         # Load each conformer
         for sdf_file in conf_files:
             try:
-                mol = Chem.MolFromMolFile(
+                # Use SDMolSupplier to preserve SDF properties (bond orders, etc.)
+                supplier = Chem.SDMolSupplier(
                     str(sdf_file),
                     removeHs=False,  # Keep hydrogens
                     sanitize=True
                 )
+                mol = supplier[0] if len(supplier) > 0 else None
 
                 if mol is None:
                     errors += 1

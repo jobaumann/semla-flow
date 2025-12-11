@@ -200,7 +200,7 @@ def build_dm(args, vocab):
 
     elif args.dataset == "qmugs":
         coord_std = util.QMUGS_COORDS_STD_DEV
-        padded_sizes = util.QMUGS_DRUGS_BUCKET_LIMITS
+        padded_sizes = util.QMUGS_BUCKET_LIMITS
 
     else:
         raise ValueError(f"Unknown dataset {args.dataset}. Available datasets are `qm9` and `geom-drugs`.")
@@ -330,7 +330,7 @@ def build_trainer(args):
 
     trainer = L.Trainer(
         # TODO change:
-        # limit_train_batches=0.05
+        limit_train_batches=0.05,
         min_epochs=epochs,
         max_epochs=epochs,
         logger=logger,
