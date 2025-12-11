@@ -42,7 +42,7 @@ DEFAULT_CHUNK_SIZE = 500
 def create_splits(summary_df, train_frac=0.8, val_frac=0.1, random_seed=42):
     """Create train/val/test splits from QMugs summary"""
     unique_mols = summary_df['chembl_id'].unique()
-    n_total = int(len(unique_mols) * 1.0)
+    n_total = int(len(unique_mols) * 0.05)
 
     n_train = int(train_frac * n_total)
     n_val = int(val_frac * n_total)
