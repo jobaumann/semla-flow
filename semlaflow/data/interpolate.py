@@ -307,7 +307,7 @@ class GeometricInterpolant(Interpolant):
             to_atomics[atom_mask] = from_atomics[atom_mask]
             atomics = smolF.one_hot_encode_tensor(to_atomics, to_mol.atomics.size(-1))
 
-        # Interpolate bonds
+        # Interpolate bonds TODO: Interpolate bonds like a continuous variable
         if self.bond_interpolation == "dirichlet":
             to_adj = torch.softmax(to_mol.adjacency / self.type_dist_temp, dim=-1)
             adj_mean = (from_mol.adjacency * (1 - t)) + (to_adj * t)

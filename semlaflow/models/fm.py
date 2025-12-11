@@ -826,9 +826,12 @@ class MolecularCFM(L.LightningModule):
     def _bond_loss(self, data, interpolated, predicted, eps=1e-3):
         pred_logits = predicted["bonds"]
         mask = data["mask"]
+        # data[bonds] shape of (batch_size, num_atoms, num_atoms, n_bond_types)
+        # change to shape of (batch_size, num_atoms, num_atoms, 1)
         bonds = torch.argmax(data["bonds"], dim=-1)
         batch_size, num_atoms, _, _ = pred_logits.size()
 
+        # TODO: MSE between pred and data bond orders.
         bond_loss = F.cross_entropy(pred_logits.flatten(0, 2), bonds.flatten(0, 2), reduction="none")
         bond_loss = bond_loss.unflatten(0, (batch_size, num_atoms, num_atoms))
 

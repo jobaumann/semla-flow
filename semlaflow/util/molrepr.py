@@ -487,6 +487,7 @@ class GeometricMol(SmolMol):
         return bond_orders, properties
 
     # Note: currently only uses the default conformer for mol
+    # TODO: Read and understand
     @staticmethod
     def from_rdkit(mol: Chem.rdchem.Mol, extract_qm_properties: bool = False,
                    bond_order_type: str = "GFN2:WIBERG_BOND_ORDER") -> GeometricMol:

@@ -120,8 +120,8 @@ def build_model(args, dm, vocab):
         coord_scale = util.QM9_COORDS_STD_DEV
     elif args.dataset == "geom-drugs":
         coord_scale = util.GEOM_COORDS_STD_DEV
-    # elif args.dataset == "qmugs":
-    #     coord_scale = util.QMUGS_COORDS_STD_DEV
+    elif args.dataset == "qmugs":
+        coord_scale = util.QMUGS_COORDS_STD_DEV
     else:
         raise ValueError(f"Unknown dataset {args.dataset}")
 
@@ -198,7 +198,6 @@ def build_dm(args, vocab):
         coord_std = util.GEOM_COORDS_STD_DEV
         padded_sizes = util.GEOM_DRUGS_BUCKET_LIMITS
 
-    # TODO Add qmugs dataset
     elif args.dataset == "qmugs":
         coord_std = util.QMUGS_COORDS_STD_DEV
         padded_sizes = util.QMUGS_DRUGS_BUCKET_LIMITS
@@ -330,6 +329,8 @@ def build_trainer(args):
     logger = None if args.trial_run else logger
 
     trainer = L.Trainer(
+        # TODO change:
+        # limit_train_batches=0.05
         min_epochs=epochs,
         max_epochs=epochs,
         logger=logger,

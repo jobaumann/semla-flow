@@ -501,6 +501,7 @@ class EquiMessagePassingLayer(torch.nn.Module):
         node_feats = node_feats + self.node_attn(node_feats, node_messages, adj_matrix)
         coords = coords + self.coord_attn(coords, coord_messages, adj_matrix, node_mask)
 
+        # TODO: Change to continuous type
         if self.d_edge_out is not None:
             edge_out = messages[:, :, :, (self.n_attn_heads + self.d_coord_message) :]
             edge_out = edge_feats + edge_out if edge_feats is not None else edge_out
