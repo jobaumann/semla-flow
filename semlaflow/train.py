@@ -224,6 +224,8 @@ def build_dm(args, vocab):
     type_mask_index = None
     bond_mask_index = None
 
+    # TODO: Add continuous..?
+
     if args.categorical_strategy == "mask":
         type_mask_index = vocab.indices_from_tokens(["<MASK>"])[0]
         bond_mask_index = util.BOND_MASK_INDEX

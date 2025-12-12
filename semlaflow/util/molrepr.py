@@ -445,14 +445,14 @@ class GeometricMol(SmolMol):
         return mol
 
     @staticmethod
-    def _extract_qm_properties(mol: Chem.rdchem.Mol, bond_order_type: str = "GFN2:WIBERG_BOND_ORDER"):
+    def _extract_qm_properties(mol: Chem.rdchem.Mol, bond_order_type: str = "DFT:MAYER_BOND_ORDER"):
         """Extract QM properties from RDKit molecule SDF properties.
 
         Args:
             mol: RDKit molecule with SDF properties
             bond_order_type: Which bond order property to use. Options:
-                - "GFN2:WIBERG_BOND_ORDER" (default)
-                - "DFT:MAYER_BOND_ORDER"
+                - "DFT:MAYER_BOND_ORDER" (default)
+                - "GFN2:WIBERG_BOND_ORDER"
                 - "DFT:WIBERG_LOWDIN_BOND_ORDER"
 
         Returns:
@@ -490,7 +490,7 @@ class GeometricMol(SmolMol):
     # TODO: Read and understand
     @staticmethod
     def from_rdkit(mol: Chem.rdchem.Mol, extract_qm_properties: bool = False,
-                   bond_order_type: str = "GFN2:WIBERG_BOND_ORDER") -> GeometricMol:
+                   bond_order_type: str = "DFT:MAYER_BOND_ORDER") -> GeometricMol:
         # TODO handle this better - maybe create 3D info if not provided, with a warning
         if mol.GetNumConformers() == 0 or not mol.GetConformer().Is3D():
             raise RuntimeError("The default conformer must have 3D coordinates")
