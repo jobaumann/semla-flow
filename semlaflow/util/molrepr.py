@@ -681,6 +681,7 @@ class GeometricMolBatch(SmolBatch[GeometricMol]):
         self._atomics = None
         self._bond_indices = None
         self._bond_types = None
+        # self._bond_orders = None
         self._bonds = None
         self._charges = None
 
@@ -743,6 +744,17 @@ class GeometricMolBatch(SmolBatch[GeometricMol]):
             self._charges = smolF.pad_tensors(charges)
 
         return self._charges
+    
+    # # TODO: Test if this works
+    # @property
+    # def bond_orders(self) -> Optional[_T]:
+    #     """Batched continuous bond orders. Returns None if any molecule lacks bond orders."""
+    #     # Check if all molecules have bond_orders
+    #     if any(mol.bond_orders is None for mol in self._mols):
+    #         return None
+
+    #     bond_orders_list = [mol.bond_orders for mol in self._mols]
+    #     return smolF.pad_tensors(bond_orders_list)
 
     @property
     def adjacency(self) -> _T:

@@ -74,7 +74,7 @@ def configure_fs(limit=4096):
 # 4. Creates a one-hot vector for the atomic numbers of each atom
 # 5. Creates a one-hot vector for the bond type for every possible bond
 # 6. Encodes charges as non-negative numbers according to encoding map
-def mol_transform(molecule, vocab, n_bonds, coord_std):
+def mol_transform(molecule, vocab, n_bonds, coord_std, continuous_bonds):
     rotation = tuple(np.random.rand(3) * np.pi * 2)
     molecule = molecule.scale(1.0 / coord_std).rotate(rotation).zero_com()
 
@@ -82,7 +82,14 @@ def mol_transform(molecule, vocab, n_bonds, coord_std):
     tokens = [smolRD.PT.symbol_from_atomic(atomic) for atomic in atomic_nums]
     one_hot_atomics = torch.tensor(vocab.indices_from_tokens(tokens, one_hot=True))
 
-    bond_types = smolF.one_hot_encode_tensor(molecule.bond_types, n_bonds)
+    # TODO: Change to continuous bond order!!!!
+    if continuous_bonds:
+        bond_types = molecule.bond_orders
+    else:
+        bond_types = smolF.one_hot_encode_tensor(molecule.bond_types, n_bonds)
+    # print(bond_types)
+    # print(molecule.bond_types)
+    # print(molecule.bond_orders)
 
     charge_idxs = [smolRD.CHARGE_IDX_MAP[charge] for charge in molecule.charges.tolist()]
     charge_idxs = torch.tensor(charge_idxs)
@@ -103,7 +110,9 @@ def distill_transform(molecule, coord_std):
     return transformed
 
 
-def get_n_bond_types(cat_strategy):
+def get_n_bond_types(cat_strategy, continuous_bonds=False):
+    if continuous_bonds:
+        return 1
     n_bond_types = len(smolRD.BOND_IDX_MAP.keys()) + 1
     n_bond_types = n_bond_types + 1 if cat_strategy == "mask" else n_bond_types
     return n_bond_types

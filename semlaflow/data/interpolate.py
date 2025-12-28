@@ -168,7 +168,7 @@ class GeometricInterpolant(Interpolant):
         if type_interpolation not in ["dirichlet", "unmask"]:
             raise ValueError(f"type interpolation '{type_interpolation}' not supported.")
 
-        if bond_interpolation not in ["dirichlet", "unmask"]:
+        if bond_interpolation not in ["dirichlet", "unmask", "continuous"]:
             raise ValueError(f"bond interpolation '{bond_interpolation}' not supported.")
 
         self.prior_sampler = prior_sampler
@@ -308,7 +308,13 @@ class GeometricInterpolant(Interpolant):
             atomics = smolF.one_hot_encode_tensor(to_atomics, to_mol.atomics.size(-1))
 
         # Interpolate bonds
-        if self.bond_interpolation == "dirichlet":
+
+        # TODO: Interpolate bonds like a continuous variable (or is it dirichlet?)
+        if self.bond_interpolation == "continuous":
+            interp_adj = (from_mol.adjacency * (1 - t)) + (to_mol.adjacency * t)
+            # print(from_mol.adjacency[0][1], to_mol.adjacency[0][1], t, interp_adj[0][1], "\n")
+
+        elif self.bond_interpolation == "dirichlet":
             to_adj = torch.softmax(to_mol.adjacency / self.type_dist_temp, dim=-1)
             adj_mean = (from_mol.adjacency * (1 - t)) + (to_adj * t)
             interp_adj = torch.distributions.Dirichlet(adj_mean).sample()
@@ -319,17 +325,8 @@ class GeometricInterpolant(Interpolant):
             bond_mask = torch.rand_like(from_adj.float()) > t
             to_adj[bond_mask] = from_adj[bond_mask]
             interp_adj = smolF.one_hot_encode_tensor(to_adj, to_mol.adjacency.size(-1))
+            # print(from_mol.adjacency[0][1], to_mol.adjacency[0][1], t, interp_adj[0][1], "\n")
 
-        # TODO: Interpolate bonds like a continuous variable (or is it dirichlet?)
-        elif self.bond_interpolation == "continuous":
-            # What to do here??
-            to_adj = torch.softmax(to_mol.adjacency / self.type_dist_temp, dim=-1)
-            adj_mean = (from_mol.adjacency * (1 - t)) + (to_adj * t)
-            # Which distribution to use? 
-            interp_adj = torch.distributions.Dirichlet(adj_mean).sample()
-            # coords_mean = (from_mol.coords * (1 - t)) + (to_mol.coords * t)
-            # coords_noise = torch.randn_like(coords_mean) * self.coord_noise_std
-            # coords = coords_mean + coords_noise
 
 
         bond_indices = torch.ones((from_mol.seq_length, from_mol.seq_length)).nonzero()

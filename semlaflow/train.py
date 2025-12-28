@@ -66,7 +66,7 @@ def build_model(args, dm, vocab):
 
     # Add 1 for the time (0 <= t <= 1 for flow matching)
     n_atom_feats = vocab.size + 1
-    n_bond_types = util.get_n_bond_types(args.categorical_strategy)
+    n_bond_types = util.get_n_bond_types(args.categorical_strategy, args.continuous_bonds)
 
     if args.arch == "semla":
         dynamics = EquiInvDynamics(
@@ -207,8 +207,11 @@ def build_dm(args, vocab):
 
     data_path = Path(args.data_path)
 
-    n_bond_types = util.get_n_bond_types(args.categorical_strategy)
-    transform = partial(util.mol_transform, vocab=vocab, n_bonds=n_bond_types, coord_std=coord_std)
+    if args.continuous_bonds:
+        n_bond_types = 1
+    else:
+        n_bond_types = util.get_n_bond_types(args.categorical_strategy)
+    transform = partial(util.mol_transform, vocab=vocab, n_bonds=n_bond_types, coord_std=coord_std, continuous_bonds=args.continuous_bonds)
 
     # Load generated dataset with different transform fn if we are distilling a model
     # if args.distill:
@@ -229,15 +232,18 @@ def build_dm(args, vocab):
     if args.categorical_strategy == "mask":
         type_mask_index = vocab.indices_from_tokens(["<MASK>"])[0]
         bond_mask_index = util.BOND_MASK_INDEX
-        categorical_interpolation = "unmask"
+        categorical_type_interpolation = "unmask"
+        categorical_bond_interpolation = "unmask"
         categorical_noise = "mask"
 
     elif args.categorical_strategy == "uniform-sample":
-        categorical_interpolation = "unmask"
+        categorical_type_interpolation = "unmask"
+        categorical_bond_interpolation = "unmask"
         categorical_noise = "uniform-sample"
 
     elif args.categorical_strategy == "dirichlet":
-        categorical_interpolation = "dirichlet"
+        categorical_type_interpolation = "dirichlet"
+        categorical_bond_interpolation = "dirichlet"
         categorical_noise = "uniform-dist"
 
     else:
@@ -245,6 +251,9 @@ def build_dm(args, vocab):
             f"Interpolation '{args.categorical_strategy}' is not supported. "
             + "Supported are: `mask`, `uniform-sample` and `dirichlet`"
         )
+    
+    if args.continuous_bonds:
+        categorical_bond_interpolation = "continuous"
 
     scale_ot = False
     batch_ot = False
@@ -280,8 +289,8 @@ def build_dm(args, vocab):
     train_interpolant = GeometricInterpolant(
         prior_sampler,
         coord_interpolation="linear",
-        type_interpolation=categorical_interpolation,
-        bond_interpolation=categorical_interpolation,
+        type_interpolation=categorical_type_interpolation,
+        bond_interpolation=categorical_bond_interpolation,
         coord_noise_std=args.coord_noise_std_dev,
         type_dist_temp=args.type_dist_temp,
         equivariant_ot=equivariant_ot,
@@ -293,8 +302,8 @@ def build_dm(args, vocab):
     eval_interpolant = GeometricInterpolant(
         prior_sampler,
         coord_interpolation="linear",
-        type_interpolation=categorical_interpolation,
-        bond_interpolation=categorical_interpolation,
+        type_interpolation=categorical_type_interpolation,
+        bond_interpolation=categorical_bond_interpolation,
         equivariant_ot=False,
         batch_ot=False,
         fixed_time=0.9,
@@ -408,6 +417,7 @@ if __name__ == "__main__":
     parser.add_argument("--bond_loss_weight", type=float, default=DEFAULT_BOND_LOSS_WEIGHT)
     parser.add_argument("--charge_loss_weight", type=float, default=DEFAULT_CHARGE_LOSS_WEIGHT)
     parser.add_argument("--categorical_strategy", type=str, default=DEFAULT_CATEGORICAL_STRATEGY)
+    parser.add_argument("--continuous_bonds", action="store_true")
     parser.add_argument("--lr_schedule", type=str, default=DEFAULT_LR_SCHEDULE)
     parser.add_argument("--warm_up_steps", type=int, default=DEFAULT_WARM_UP_STEPS)
     parser.add_argument("--bucket_cost_scale", type=str, default=DEFAULT_BUCKET_COST_SCALE)

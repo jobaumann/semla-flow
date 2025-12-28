@@ -193,7 +193,12 @@ class GeometricDM(SmolDM):
 
         coords = batch.coords.float()[1:]
         atomics = batch.atomics.float()[1:]
-        bonds = batch.adjacency.float()[1:]
+        # TODO: Change for continuous bond orders
+        bonds = batch.adjacency.float()[1:] # OLD!
+        # print(bonds.shape)
+        # bond_orders = batch.bond_orders
+        # if bond_orders is not None:
+        #     bond_orders = bond_orders.float()[1:]
         charges = batch.charges.long()[1:]
         mask = batch.mask.long()[1:]
 
@@ -202,6 +207,7 @@ class GeometricDM(SmolDM):
             n_charges = len(smolRD.CHARGE_IDX_MAP.keys())
             charges = smolF.one_hot_encode_tensor(charges, n_charges)
 
+        # TODO: Add bond orders
         data = {"coords": coords, "atomics": atomics, "bonds": bonds, "charges": charges, "mask": mask}
         return data
 
